@@ -13,6 +13,9 @@
 #include "allocator.h"
 #include "client_c.h"
 #include "utils.h"
+#include "test_server_helpers.h"
+
+#include "client.h"
 
 DEFINE_string(protocol, "tcp", "Transfer protocol: rdma|tcp");
 DEFINE_string(device_name, "ibp6s0",
@@ -30,13 +33,21 @@ namespace testing {
 class ClientCIntegrationTest : public ::testing::Test {
    protected:
     static client_t CreateClient(const std::string& host_name) {
+        auto client_cpp = Client::Create(
+            host_name, 
+            "http://localhost:8080/metadata", 
+            FLAGS_protocol, 
+            std::nullopt, 
+            "localhost:50051");
+        EXPECT_TRUE(client_cpp.has_value()) << "Failed to create client";
+
+
         client_t client =
             mooncake_client_create(host_name.c_str(),  // Local hostname
-                                   FLAGS_transfer_engine_metadata_url
-                                       .c_str(),  // Metadata connection string
+                                   "P2PHANDSHAKE",  // Metadata connection string
                                    FLAGS_protocol.c_str(),     // Protocol
-                                   FLAGS_device_name.c_str(),  // RDMA devices
-                                   "localhost:50051"  // Master server address
+                                   nullptr,  // RDMA devices
+                                   master_address_.c_str()  // Master server address
             );
 
         EXPECT_NE(client, nullptr)
@@ -66,6 +77,13 @@ class ClientCIntegrationTest : public ::testing::Test {
         }
         LOG(INFO) << "Default KV lease TTL: " << default_kv_lease_ttl_;
 
+        // Start an in-process non-HA master without HTTP metadata server
+        ASSERT_TRUE(master_.Start(InProcMasterConfigBuilder().build()));
+        master_address_ = master_.master_address();
+        metadata_url_ = master_.metadata_url();
+        LOG(INFO) << "Started in-proc master at " << master_address_
+                  << ", metadata=P2PHANDSHAKE";
+
         InitializeTestClient();
         InitializeSegmentProviderClient();
     }
@@ -73,6 +91,7 @@ class ClientCIntegrationTest : public ::testing::Test {
     static void TearDownTestSuite() {
         CleanupSegment();
         CleanupClients();
+        master_.Stop();
         google::ShutdownGoogleLogging();
     }
 
@@ -171,6 +190,10 @@ class ClientCIntegrationTest : public ::testing::Test {
     static void* test_client_segment_ptr_;
     static size_t test_client_segment_size_;
     static uint64_t default_kv_lease_ttl_;
+
+    static InProcMaster master_;
+    static std::string master_address_;
+    static std::string metadata_url_;
 };
 
 // Static members initialization
@@ -183,6 +206,10 @@ std::unique_ptr<SimpleAllocator>
 size_t ClientCIntegrationTest::segment_size_ = 0;
 size_t ClientCIntegrationTest::test_client_segment_size_ = 0;
 uint64_t ClientCIntegrationTest::default_kv_lease_ttl_ = 0;
+
+InProcMaster ClientCIntegrationTest::master_;
+std::string ClientCIntegrationTest::master_address_;
+std::string ClientCIntegrationTest::metadata_url_;
 
 // Test basic Put/Get operations through the C client
 TEST_F(ClientCIntegrationTest, BasicPutGetOperations) {

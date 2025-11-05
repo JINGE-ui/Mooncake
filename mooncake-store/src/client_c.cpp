@@ -20,7 +20,7 @@
 
 using namespace mooncake;
 
-// 管理 client 对象的生命周期
+// Managing the lifecycle of client objects
 void* create_obj(std::shared_ptr<Client> client) {
     return new std::shared_ptr<void>(client);
 }

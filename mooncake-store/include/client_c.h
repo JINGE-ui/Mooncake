@@ -22,7 +22,7 @@
 extern "C" {
 #endif  // __cplusplus
 
-// types.h 中的 ErrorCode Code
+// ErrorCode Code in types.h
 typedef int32_t ErrorCode_t;
 
 #define MOONCAKE_ERROR_OK ((ErrorCode_t)0)
@@ -121,18 +121,25 @@ long mooncake_client_remove_byregex(client_t client, const char* regex);
 
 long mooncake_client_remove_all(client_t client);
 
+// get put
 ErrorCode_span_t mooncake_client_batch_get(client_t client, BatchItem_t* items,
                                            size_t items_count);
 
 ErrorCode_span_t mooncake_client_batch_put(client_t client, BatchItem_t* items,
                                            size_t items_count,
                                            const ReplicateConfig_t config);
+// batch_isexist
 
 void mooncake_client_destroy(client_t client);
 
 uint64_t mooncake_max_slice_size();
 
 void* mooncake_allocate_segment_memory(size_t size);
+
+
+// refactor batch get/put
+// add put/get_tensor
+
 
 #ifdef __cplusplus
 }
